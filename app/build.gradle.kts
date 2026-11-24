@@ -14,7 +14,7 @@ android {
         // GitHub Actions 실행 번호를 versionCode 로 쓴다: 빌드할 때마다 커져서 항상 '업데이트'로 설치된다
         val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
         versionCode = maxOf(3, run ?: 3)
-        versionName = "0.4.0" + (run?.let { " (빌드 $it)" } ?: "")
+        versionName = "0.5.0" + (run?.let { " (빌드 $it)" } ?: "")
     }
 
     compileOptions {

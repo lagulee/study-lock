@@ -29,16 +29,17 @@ object ClaudeCheck {
         .putAdditionalProperty(
             "properties", JsonValue.from(
                 mapOf(
+                    "seen" to mapOf("type" to "string", "description" to "사진마다 실제로 보이는 것(과목·쪽수·풀이 양·채점 표시)"),
                     "pass" to mapOf("type" to "boolean", "description" to "할 일을 끝낸 증거로 인정하면 true"),
                     "reason" to mapOf("type" to "string", "description" to "학생에게 보여 줄 한국어 1~2문장"),
                 )
             )
         )
-        .putAdditionalProperty("required", JsonValue.from(listOf("pass", "reason")))
+        .putAdditionalProperty("required", JsonValue.from(listOf("seen", "pass", "reason")))
         .putAdditionalProperty("additionalProperties", JsonValue.from(false))
         .build()
 
-    fun check(apiKey: String, lightModel: Boolean, task: String, jpegBase64: String): AiCheck.Outcome {
+    fun check(apiKey: String, lightModel: Boolean, task: String, jpegs: List<String>): AiCheck.Outcome {
         val model = if (lightModel) MODEL_LIGHT else MODEL_SMART
         val client = AnthropicOkHttpClient.builder()
             .apiKey(apiKey)
@@ -52,15 +53,14 @@ object ClaudeCheck {
                 .system(AiCheck.SYSTEM)
                 .outputConfig(BetaOutputConfig.builder().format(BetaJsonOutputFormat.builder().schema(schema).build()).build())
                 .addUserMessageOfContentBlockParams(
-                    listOf(
+                    jpegs.map { b64 ->
                         BetaContentBlockParam.ofImage(
                             BetaBase64ImageSource.builder()
-                                .data(jpegBase64)
+                                .data(b64)
                                 .mediaType(BetaBase64ImageSource.MediaType.IMAGE_JPEG)
                                 .build()
-                        ),
-                        BetaContentBlockParam.ofText(AiCheck.userText(task)),
-                    )
+                        )
+                    } + BetaContentBlockParam.ofText(AiCheck.userText(task, jpegs.size))
                 )
             if (!lightModel) {
                 // 안전 분류기가 거절하면 서버가 다른 모델로 자동으로 다시 시도한다

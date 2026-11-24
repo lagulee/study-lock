@@ -15,8 +15,8 @@ class PhotoActivity : Activity() {
         page {
             text(r.task, 20f, bold = true, topDp = 0)
             text("${clock(r.start)} ~ ${clock(r.end)} · ${minutesText(r.end - r.start)} · ${r.method}", 14f)
-            if (r.photo.isNotEmpty()) {
-                BitmapFactory.decodeFile(r.photo)?.let { bmp ->
+            for (path in r.photos()) {
+                BitmapFactory.decodeFile(path)?.let { bmp ->
                     addView(ImageView(context).apply {
                         setImageBitmap(bmp)
                         adjustViewBounds = true

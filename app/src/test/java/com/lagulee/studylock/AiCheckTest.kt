@@ -34,3 +34,15 @@ class AiCheckTest {
         assertTrue(GeminiCheck.readAnswer("""{"candidates":[]}""") is AiCheck.Outcome.Failed)
     }
 }
+
+class RecordTest {
+    @Test fun 여러_장_사진_경로를_나눠_읽는다() {
+        val r = Store.Record("t", 0, 1, "Gemini 인증", photo = "/a.jpg\n/b.jpg\n")
+        assertEquals(listOf("/a.jpg", "/b.jpg"), r.photos())
+        assertEquals(emptyList<String>(), Store.Record("t", 0, 1, "대기").photos())
+    }
+
+    @Test fun 질문에_사진_수가_들어간다() {
+        assertTrue(AiCheck.userText("수학 24~27쪽", 3).contains("사진: 3장"))
+    }
+}

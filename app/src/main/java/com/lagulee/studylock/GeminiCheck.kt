@@ -14,18 +14,19 @@ import java.net.URL
 object GeminiCheck {
     const val MODEL_LIGHT = "gemini-3.5-flash-lite"
     const val MODEL_SMART = "gemini-3.8-flash"
+    /** 고른 모델이 계속 붐빌 때 한 번 더 시도할 모델. */
+    const val MODEL_BACKUP = "gemini-3.1-flash-lite"
 
-    fun check(apiKey: String, smart: Boolean, task: String, jpegBase64: String): AiCheck.Outcome {
+    fun check(apiKey: String, smart: Boolean, task: String, jpegs: List<String>): AiCheck.Outcome {
         val model = if (smart) MODEL_SMART else MODEL_LIGHT
+        val parts = JSONArray()
+        for (b64 in jpegs) parts.put(JSONObject().put("inlineData", JSONObject().put("mimeType", "image/jpeg").put("data", b64)))
+        parts.put(JSONObject().put("text", AiCheck.userText(task, jpegs.size)))
         val body = JSONObject()
             .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", AiCheck.SYSTEM))))
             .put(
                 "contents", JSONArray().put(
-                    JSONObject().put("role", "user").put(
-                        "parts", JSONArray()
-                            .put(JSONObject().put("inlineData", JSONObject().put("mimeType", "image/jpeg").put("data", jpegBase64)))
-                            .put(JSONObject().put("text", AiCheck.userText(task)))
-                    )
+                    JSONObject().put("role", "user").put("parts", parts)
                 )
             )
             .put(
@@ -36,13 +37,29 @@ object GeminiCheck {
                             .put("type", "OBJECT")
                             .put(
                                 "properties", JSONObject()
+                                    .put("seen", JSONObject().put("type", "STRING"))
                                     .put("pass", JSONObject().put("type", "BOOLEAN"))
                                     .put("reason", JSONObject().put("type", "STRING"))
                             )
-                            .put("required", JSONArray().put("pass").put("reason"))
+                            .put("required", JSONArray().put("seen").put("pass").put("reason"))
+                            .put("propertyOrdering", JSONArray().put("seen").put("pass").put("reason"))
                     )
             )
 
+        // 구글 서버가 붐비면(500·503) 잠깐 쉬었다 다시 보내고, 그래도 안 되면 비슷한 다른 모델로 한 번 더 보낸다
+        val tries = listOf(model to 0L, model to 2_000L, model to 5_000L, MODEL_BACKUP to 2_000L)
+        var last: AiCheck.Outcome = AiCheck.Outcome.Failed("Gemini 서버가 붐벼요. 잠시 뒤에 다시 시도해 주세요.")
+        for ((m, delay) in tries) {
+            if (delay > 0) Thread.sleep(delay)
+            val (code, outcome) = post(apiKey, m, body.toString())
+            last = outcome
+            if (code != 500 && code != 503) return outcome
+        }
+        return last
+    }
+
+    /** 한 번 보내고 (HTTP 코드, 결과)를 돌려준다. 코드 0 = 인터넷 오류. */
+    private fun post(apiKey: String, model: String, body: String): Pair<Int, AiCheck.Outcome> {
         val conn = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent")
             .openConnection() as HttpURLConnection
         return try {
@@ -52,12 +69,12 @@ object GeminiCheck {
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setRequestProperty("x-goog-api-key", apiKey)
-            conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
 
             val code = conn.responseCode
             val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
                 ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
-            when {
+            code to when {
                 code == 400 && text.contains("API_KEY_INVALID") ->
                     AiCheck.Outcome.Failed("Gemini API 키가 맞지 않아요. 설정에서 키를 다시 확인해 주세요.")
                 code == 401 || code == 403 ->
@@ -66,14 +83,16 @@ object GeminiCheck {
                     AiCheck.Outcome.Failed("Gemini 모델($model)을 찾지 못했어요. 설정에서 다른 Gemini 모델을 골라 보세요.")
                 code == 429 ->
                     AiCheck.Outcome.Failed("오늘 무료 사용 횟수를 넘었거나 너무 자주 보냈어요. 잠시 뒤에 다시 시도해 주세요.")
+                code == 500 || code == 503 ->
+                    AiCheck.Outcome.Failed("Gemini 서버가 붐벼요($code). 잠시 뒤에 다시 시도해 주세요.")
                 code !in 200..299 ->
                     AiCheck.Outcome.Failed("Gemini 서버 오류예요($code). 잠시 뒤에 다시 시도해 주세요.")
                 else -> readAnswer(text)
             }
         } catch (e: IOException) {
-            AiCheck.Outcome.Failed("인터넷에 연결할 수 없어요. 와이파이나 데이터를 확인해 주세요.")
+            0 to AiCheck.Outcome.Failed("인터넷에 연결할 수 없어요. 와이파이나 데이터를 확인해 주세요.")
         } catch (e: Exception) {
-            AiCheck.Outcome.Failed("확인 중 오류가 났어요: ${e.javaClass.simpleName} ${e.message.orEmpty()}")
+            0 to AiCheck.Outcome.Failed("확인 중 오류가 났어요: ${e.javaClass.simpleName} ${e.message.orEmpty()}")
         } finally {
             conn.disconnect()
         }

@@ -113,7 +113,10 @@ class Store(context: Context) {
         val photo: String = "",
         val summary: String = "",
         val note: String = "",
-    )
+    ) {
+        /** 인증 사진 경로들(여러 장이면 줄바꿈으로 이어 저장). */
+        fun photos(): List<String> = photo.split("\n").filter { it.isNotBlank() }
+    }
 
     fun records(): List<Record> {
         val arr = JSONArray(p.getString("records", "[]"))
@@ -130,7 +133,7 @@ class Store(context: Context) {
         val all = listOf(r) + records()
         val keep = all.take(MAX_RECORDS)
         // 오래된 기록의 인증 사진은 지운다
-        for (old in all.drop(MAX_RECORDS)) if (old.photo.isNotEmpty()) File(old.photo).delete()
+        for (old in all.drop(MAX_RECORDS)) old.photos().forEach { File(it).delete() }
         val arr = JSONArray(keep.map {
             JSONObject().put("task", it.task).put("start", it.start).put("end", it.end).put("method", it.method)
                 .put("photo", it.photo).put("summary", it.summary).put("note", it.note)
