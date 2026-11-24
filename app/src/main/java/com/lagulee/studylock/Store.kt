@@ -26,11 +26,6 @@ class Store(context: Context) {
         get() = p.getInt("waitMinutes", DEFAULT_WAIT_MINUTES)
         set(v) = p.edit().putInt("waitMinutes", v).apply()
 
-    /** 인증 버튼이 열리기까지 최소로 집중해야 하는 시간(분). */
-    var minFocusMinutes: Int
-        get() = p.getInt("minFocus", DEFAULT_MIN_FOCUS)
-        set(v) = p.edit().putInt("minFocus", v).apply()
-
     /** Claude 판단에 가벼운 모델(Haiku)을 쓸지. 기본은 가장 똑똑한 모델(Opus). */
     var useLightModel: Boolean
         get() = p.getBoolean("lightModel", false)
@@ -56,9 +51,6 @@ class Store(context: Context) {
     val startedAt: Long get() = p.getLong("startedAt", 0L)
     /** 세션 동안 적용되는 대기 시간(시작할 때 고정, 도중에 줄일 수 없음). */
     val sessionWaitMinutes: Int get() = p.getInt("sessionWaitMinutes", waitMinutes)
-    val sessionMinFocus: Int get() = p.getInt("sessionMinFocus", minFocusMinutes)
-    /** 이 시각부터 인증할 수 있다. */
-    val verifyFrom: Long get() = startedAt + sessionMinFocus * 60_000L
     val sessionLockSettings: Boolean get() = p.getBoolean("sessionLockSettings", false)
     /** 대기 해제가 끝나는 시각. 0 이면 대기를 시작하지 않음. */
     val waitUntil: Long get() = p.getLong("waitUntil", 0L)
@@ -69,7 +61,6 @@ class Store(context: Context) {
             .putString("sessionTask", task.trim())
             .putLong("startedAt", now)
             .putInt("sessionWaitMinutes", waitMinutes)
-            .putInt("sessionMinFocus", minFocusMinutes)
             .putBoolean("sessionLockSettings", lockSettings)
             .putLong("waitUntil", 0L)
             .remove("failAt")
@@ -152,11 +143,9 @@ class Store(context: Context) {
 
     companion object {
         const val DEFAULT_WAIT_MINUTES = 20
-        const val DEFAULT_MIN_FOCUS = 30
         const val FAIL_COOLDOWN_MS = 30_000L
         const val MAX_RECORDS = 30
         val WAIT_CHOICES = listOf(10, 20, 30, 60)
-        val MIN_FOCUS_CHOICES = listOf(15, 30, 45, 60, 90)
         /** "설정 앱도 잠그기"를 켰을 때 함께 막는 화면(설정, 앱 삭제 창). */
         val SETTINGS_PACKAGES = setOf(
             "com.android.settings",

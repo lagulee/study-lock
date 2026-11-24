@@ -7,13 +7,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.provider.MediaStore
 import android.util.Base64
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import java.io.ByteArrayOutputStream
@@ -22,17 +19,14 @@ import java.io.FileOutputStream
 
 /**
  * 할 일 인증.
- * 1) 최소 집중 시간이 지나야 열린다.
- * 2) 한 일을 사진으로 찍는다.
+ * 한 일을 사진으로 찍는다.
  *    - Claude/Gemini 키가 있으면: AI가 할 일과 사진을 비교해 판단한다(둘 다 있으면 Claude).
  *    - 키가 없으면: 사진은 기록으로 남고 바로 풀린다.
  */
 class VerifyActivity : Activity() {
     private lateinit var store: Store
-    private val tick = Handler(Looper.getMainLooper())
     private val shot by lazy { File(cacheDir, "photos/verify.jpg") }
     private var resultArea: LinearLayout? = null
-    private var countdown: TextView? = null
     private var busy = false
 
     /** 사진을 판단할 AI(없으면 null). */
@@ -48,46 +42,17 @@ class VerifyActivity : Activity() {
         render()
     }
 
-    override fun onPause() {
-        super.onPause()
-        tick.removeCallbacks(ticker)
-    }
-
     override fun onResume() {
         super.onResume()
-        if (!store.active) { finish(); return }
-        tick.post(ticker)
-    }
-
-    private val ticker = object : Runnable {
-        override fun run() {
-            val left = store.verifyFrom - System.currentTimeMillis()
-            if (countdown != null) {
-                if (left <= 0) {
-                    render()
-                    return
-                }
-                countdown?.text = "⏳ ${remainText(left)} 더 집중하면 인증할 수 있어요"
-            }
-            tick.postDelayed(this, 1000)
-        }
+        if (!store.active) finish()
     }
 
     private fun render() {
-        countdown = null
         val ai = aiName(provider)
         page {
             text("할 일 인증", 22f, bold = true, topDp = 0)
             text("할 일: ${store.sessionTask}", 17f)
-            text("${minutesText(System.currentTimeMillis() - store.startedAt)}째 집중 중 · 최소 ${store.sessionMinFocus}분", 14f)
-
-            val left = store.verifyFrom - System.currentTimeMillis()
-            if (left > 0) {
-                countdown = text("⏳ ${remainText(left)} 더 집중하면 인증할 수 있어요", 18f, bold = true, center = true, topDp = 24)
-                text("집중 시작할 때 정한 최소 시간이 지나야 인증 버튼이 열려요. 급하면 '기다려서 풀기'를 쓰세요.", 14f)
-                button("돌아가기", topDp = 20) { finish() }
-                return@page
-            }
+            text("${minutesText(System.currentTimeMillis() - store.startedAt)}째 집중 중", 14f)
 
             text("📷 할 일을 한 결과물(문제집·노트)이 잘 보이게, 밝은 곳에서 찍어 주세요.", 14f, topDp = 12)
             if (ai != null) text("${ai}가 할 일과 사진을 비교해서 판단해요.", 13f)
@@ -139,7 +104,7 @@ class VerifyActivity : Activity() {
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
 
         if (who == null || key == null) {
-            // 키 없는 방식: 최소 집중 시간은 이미 지났고 사진은 기록으로 남는다
+            // 키 없는 방식: 사진은 기록으로 남는다
             pass(saved.path, "시간+사진", "")
             return
         }

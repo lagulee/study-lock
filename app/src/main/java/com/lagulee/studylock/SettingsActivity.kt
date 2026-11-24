@@ -41,7 +41,7 @@ class SettingsActivity : Activity() {
             divider()
             text("AI 사진 판단 (선택)", 17f, bold = true, topDp = 16)
             text("AI 키를 넣으면 AI가 할 일과 인증 사진을 비교해서 실제로 했는지 판단해요. " +
-                "키는 이 기기 안에만 암호화해서 저장돼요. 키가 없으면 '최소 집중 시간 + 사진 기록'으로 풀려요. " +
+                "키는 이 기기 안에만 암호화해서 저장돼요. 키가 없으면 사진을 찍기만 하면 풀려요. " +
                 "두 키가 다 있으면 Claude를 먼저 써요.", 13f)
 
             text("Claude 키", 16f, bold = true, topDp = 16)
