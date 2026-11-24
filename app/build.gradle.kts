@@ -11,8 +11,10 @@ android {
         applicationId = "com.lagulee.studylock"
         minSdk = 29 // 안드로이드 10 이상 (갤럭시 S22·탭 S10+ 모두 해당)
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        // GitHub Actions 실행 번호를 versionCode 로 쓴다: 빌드할 때마다 커져서 항상 '업데이트'로 설치된다
+        val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+        versionCode = maxOf(3, run ?: 3)
+        versionName = "0.3.0" + (run?.let { " (빌드 $it)" } ?: "")
     }
 
     compileOptions {
