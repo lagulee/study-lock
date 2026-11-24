@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">공부 잠금</string>
+    <string name="a11y_desc">집중 시간에 고른 앱이 열리면 홈으로 보내고 잠금 화면을 띄워요. 어떤 앱이 열렸는지만 보고, 화면 내용은 읽지 않아요.</string>
+</resources>
