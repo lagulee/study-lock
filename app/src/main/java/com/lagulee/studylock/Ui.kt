@@ -4,8 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Typeface
-import android.provider.Settings
-import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -74,16 +72,6 @@ fun minutesText(ms: Long): String {
 fun remainText(ms: Long): String {
     val s = (ms / 1000L).coerceAtLeast(0)
     return "${s / 60}분 ${s % 60}초"
-}
-
-/** 이 앱의 차단 기능(접근성 서비스)이 켜져 있는지. */
-fun Context.blockerEnabled(): Boolean {
-    val on = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
-    val me = "$packageName/${BlockerService::class.java.name}"
-    val shortMe = "$packageName/.${BlockerService::class.java.simpleName}"
-    val splitter = TextUtils.SimpleStringSplitter(':')
-    splitter.setString(on)
-    return splitter.any { it.equals(me, true) || it.equals(shortMe, true) }
 }
 
 fun Activity.goHome() {
