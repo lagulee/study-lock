@@ -9,6 +9,8 @@ import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
 import java.text.SimpleDateFormat
@@ -82,4 +84,23 @@ fun Context.appLabel(pkg: String): String = try {
     packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
 } catch (e: Exception) {
     pkg
+}
+
+/** 라디오 버튼 묶음(고르면 onPick 호출). */
+fun LinearLayout.choices(
+    options: List<Int>, current: Int, label: (Int) -> String, locked: Boolean,
+    vertical: Boolean = false, onPick: (Int) -> Unit,
+) {
+    val group = RadioGroup(context).apply { orientation = if (vertical) RadioGroup.VERTICAL else RadioGroup.HORIZONTAL }
+    for (o in options) {
+        group.addView(RadioButton(context).apply {
+            id = View.generateViewId()
+            text = label(o)
+            textSize = 16f
+            isEnabled = !locked
+            isChecked = o == current
+            setOnCheckedChangeListener { _, on -> if (on) onPick(o) }
+        })
+    }
+    addView(group)
 }

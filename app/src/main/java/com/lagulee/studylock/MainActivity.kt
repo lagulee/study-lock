@@ -55,6 +55,8 @@ class MainActivity : Activity() {
         if (!store.active) return ""
         val now = System.currentTimeMillis()
         val sb = StringBuilder("시작 ${clock(store.startedAt)} · ${minutesText(now - store.startedAt)} 지남")
+        val left = store.verifyFrom - now
+        sb.append(if (left > 0) "\n📸 인증까지 ${remainText(left)}" else "\n📸 지금 인증할 수 있어요")
         if (store.waitUntil != 0L) sb.append("\n⏳ 대기 해제까지 ${remainText(store.waitUntil - now)}")
         return sb.toString()
     }
@@ -62,7 +64,7 @@ class MainActivity : Activity() {
     private fun render() {
         page {
             text("공부 잠금", 26f, bold = true, topDp = 0)
-            text("할 일을 끝내고 사진으로 인증해야 고른 앱이 풀려요.", 14f)
+            text("정한 시간만큼 집중하고, 한 일을 사진으로 인증해야 고른 앱이 풀려요.", 14f)
 
             // 준비 상태: 권한 2개
             divider()
@@ -96,8 +98,13 @@ class MainActivity : Activity() {
             if (records.isNotEmpty()) {
                 divider()
                 text("기록", 18f, bold = true)
-                for (r in records.take(10)) {
-                    text("${clock(r.start)} · ${minutesText(r.end - r.start)} · ${r.method}\n   ${r.task}", 14f, topDp = 6)
+                text("눌러서 인증 사진과 한 일을 다시 볼 수 있어요.", 13f)
+                records.take(15).forEachIndexed { i, r ->
+                    val mark = if (r.photo.isNotEmpty()) "📷 " else ""
+                    text("$mark${clock(r.start)} · ${minutesText(r.end - r.start)} · ${r.method}\n   ${r.task}", 14f, topDp = 8)
+                        .setOnClickListener {
+                            startActivity(Intent(this@MainActivity, PhotoActivity::class.java).putExtra(PhotoActivity.EXTRA_INDEX, i))
+                        }
                 }
             }
         }
@@ -133,8 +140,13 @@ class MainActivity : Activity() {
             startActivity(Intent(this@MainActivity, AppPickerActivity::class.java))
         }
 
-        text("3. 시작", 18f, bold = true, topDp = 16)
-        text("풀려면: 할 일을 한 종이에 새 숫자를 써서 찍거나, ${store.waitMinutes}분 기다리기", 14f)
+        text("3. 최소 집중 시간", 18f, bold = true, topDp = 16)
+        text("이 시간이 지나야 인증 버튼이 열려요.", 14f)
+        choices(Store.MIN_FOCUS_CHOICES, store.minFocusMinutes, { "${it}분" }, false) { store.minFocusMinutes = it }
+
+        text("4. 시작", 18f, bold = true, topDp = 16)
+        val how = VerifyActivity.aiName(KeyBox.provider(store))?.let { "${it}가 사진을 확인" } ?: "사진 찍기"
+        text("풀려면: ${store.minFocusMinutes}분 뒤 $how, 또는 ${store.waitMinutes}분 기다리기", 14f)
         button("🔒 집중 시작") {
             store.task = input.text.toString()
             when {
@@ -154,7 +166,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("집중을 시작할까요?")
             .setMessage("할 일: ${store.task.trim()}\n\n고른 앱 ${store.blocked.size}개가 잠겨요. " +
-                "할 일을 끝내고 사진으로 인증하거나 ${store.waitMinutes}분을 기다려야 풀려요.")
+                "${store.minFocusMinutes}분 넘게 집중한 뒤 한 일을 사진으로 인증하거나, ${store.waitMinutes}분을 기다려야 풀려요.")
             .setPositiveButton("시작") { _, _ ->
                 store.startSession()
                 WatchService.sync(this)

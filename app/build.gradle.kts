@@ -11,8 +11,8 @@ android {
         applicationId = "com.lagulee.studylock"
         minSdk = 29 // 안드로이드 10 이상 (갤럭시 S22·탭 S10+ 모두 해당)
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     compileOptions {
@@ -22,13 +22,28 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    packaging {
+        resources {
+            // SDK가 가져오는 라이브러리들의 라이선스·메타 파일이 겹치는 것을 정리
+            excludes += setOf(
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "META-INF/INDEX.LIST",
+                "META-INF/versions/9/OSGI-INF/MANIFEST.MF",
+                "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA",
+            )
+        }
+    }
 }
 
 dependencies {
-    // 기기 안에서 사진 속 글씨를 읽는 무료 모델(인터넷 불필요, 한국어·숫자 인식)
-    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+    // Claude API 공식 SDK (설정에 키를 넣었을 때 사진 판단에 사용)
+    implementation("com.anthropic:anthropic-java:3.13.0")
     // 카메라 앱에 사진 저장 위치를 넘겨주는 FileProvider
     implementation("androidx.core:core:1.13.1")
 
     testImplementation("junit:junit:4.13.2")
+    // 안드로이드 기본 org.json 은 단위 테스트에서 빈 껍데기라 진짜 구현을 넣는다
+    testImplementation("org.json:json:20250517")
 }
