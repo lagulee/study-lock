@@ -2,9 +2,6 @@ name: 서명 확인
 # 지금까지 만든 APK 들의 서명 키와 버전을 비교한다(업데이트 설치가 안 될 때 원인 찾기용).
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/check-sign.yml']
 permissions:
   actions: read
   contents: read

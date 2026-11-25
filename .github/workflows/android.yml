@@ -44,11 +44,30 @@ jobs:
         run: |
           mkdir -p ~/.android
           keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+      - name: 이 키로 서명하게 지정
+        run: echo "SIGN_KEYSTORE=$HOME/.android/debug.keystore" >> "$GITHUB_ENV"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.14.3
       - name: 단위 테스트 + APK 빌드
         run: gradle testDebugUnitTest assembleDebug --no-daemon --stacktrace
+      - name: APK 서명이 정해 둔 키와 같은지 확인 (다르면 업데이트 설치가 안 되므로 올리지 않음)
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          apk=$("$BT/apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk | grep -m1 "SHA-256" | awk '{print $NF}')
+          key=$(keytool -list -v -keystore "$SIGN_KEYSTORE" -storepass android -alias androiddebugkey | grep "SHA256:" | awk '{print $2}' | tr -d : | tr 'A-F' 'a-f')
+          want=$(tr -d ' \n' < .github/signing-cert.sha256)
+          echo "APK 서명: $apk"
+          echo "키 파일:  $key"
+          echo "정해 둔 키: $want"
+          if [ "$apk" != "$key" ]; then echo "::error::APK가 캐시한 키로 서명되지 않았어요."; exit 1; fi
+          if [ "$apk" != "$want" ]; then
+            if [ "${{ inputs.new_key }}" = "true" ]; then
+              echo "::warning::새 키예요. .github/signing-cert.sha256 을 $apk 로 바꿔 두세요."
+            else
+              echo "::error::정해 둔 서명 키와 달라요. 이 APK는 기존 앱 위에 업데이트 설치가 안 돼요."; exit 1
+            fi
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: study-lock-apk
