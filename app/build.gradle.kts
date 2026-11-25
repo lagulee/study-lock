@@ -14,7 +14,9 @@ android {
         // GitHub Actions 실행 번호를 versionCode 로 쓴다: 빌드할 때마다 커져서 항상 '업데이트'로 설치된다
         val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
         versionCode = maxOf(3, run ?: 3)
-        versionName = "0.6.1" + (run?.let { " (빌드 $it)" } ?: "")
+        versionName = "0.6.2" + (run?.let { " (빌드 $it)" } ?: "")
+        // 화면 점검 스크린샷(ScreenshotTest)용. 앱 자체에는 들어가지 않는다.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // 서명 키: CI 에서는 캐시해 둔 키 파일을 직접 지정한다.
@@ -58,4 +60,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // 안드로이드 기본 org.json 은 단위 테스트에서 빈 껍데기라 진짜 구현을 넣는다
     testImplementation("org.json:json:20250517")
+
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("junit:junit:4.13.2")
 }
