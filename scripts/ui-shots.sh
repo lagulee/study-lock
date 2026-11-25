@@ -4,6 +4,11 @@ set -u
 PKG=com.lagulee.studylock
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+# 가상 기기가 막 켜져 바쁠 때 뜨는 "응답 없음" 창이 스크린샷을 가리지 않게
+adb shell settings put global hide_error_dialogs 1
+adb shell settings put secure anr_show_background 0
+sleep 40
+adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 0
 

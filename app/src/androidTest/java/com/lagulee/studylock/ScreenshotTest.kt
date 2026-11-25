@@ -111,6 +111,7 @@ class ScreenshotTest {
     }
 
     private fun save(name: String) {
+        shell("am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS")
         val bmp = instr.uiAutomation.takeScreenshot() ?: return
         File(out, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
