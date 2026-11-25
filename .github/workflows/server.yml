@@ -1,0 +1,17 @@
+name: Sync server
+on:
+  push:
+    branches: ['claude/**', main]
+    paths: ['server/**', '.github/workflows/server.yml']
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 서버 단위 테스트
+        working-directory: server
+        run: npm test

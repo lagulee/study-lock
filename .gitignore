@@ -5,3 +5,5 @@ local.properties
 *.jks
 .idea/
 *.iml
+desktop/**/bin/
+desktop/**/obj/

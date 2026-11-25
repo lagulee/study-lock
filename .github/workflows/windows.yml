@@ -1,0 +1,25 @@
+name: Windows app
+on:
+  push:
+    branches: ['claude/**', main]
+    paths: ['desktop/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: 단위 테스트
+        run: dotnet test desktop/StudyLock.Tests/StudyLock.Tests.csproj -c Release
+      - name: exe 하나로 만들기 (설치 없이 실행, .NET 포함)
+        run: >
+          dotnet publish desktop/StudyLock/StudyLock.csproj -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
+          -p:Version=0.6.${{ github.run_number }} -o out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: study-lock-windows
+          path: out/StudyLock.exe
