@@ -83,7 +83,7 @@ class MainActivity : Activity() {
             val usage = usageAccessGranted()
             val overlay = overlayGranted()
             val ready = usage && overlay
-            text(if (ready) "✅ 앱 막기 준비 완료" else "❌ 앱 막기에 필요한 권한 2개를 켜 주세요", 16f, bold = true)
+            text(if (ready) "✅ 앱 막기 준비 완료" else "❌ 권한 2개를 켜 주세요", 16f, bold = true)
             if (!usage) {
                 text("① 사용 정보 접근: 지금 어떤 앱이 켜졌는지만 알아요(화면 내용은 못 봐요). 목록에서 '공부 잠금'을 찾아 켜 주세요.", 14f)
                 button("사용 정보 접근 켜기") { openSettings(Settings.ACTION_USAGE_ACCESS_SETTINGS) }

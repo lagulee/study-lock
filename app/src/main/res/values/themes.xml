@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 위 제목 막대(액션 바)는 쓰지 않는다: 화면마다 큰 제목이 따로 있어 "공부 잠금"이 두 번 보이고 자리만 차지했다 -->
+    <style name="AppTheme" parent="@android:style/Theme.DeviceDefault.DayNight">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>

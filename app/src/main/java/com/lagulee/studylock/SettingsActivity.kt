@@ -1,6 +1,7 @@
 package com.lagulee.studylock
 
 import android.app.Activity
+import android.graphics.Typeface
 import android.os.Bundle
 import android.text.InputType
 import android.widget.EditText
@@ -31,7 +32,7 @@ class SettingsActivity : Activity() {
             text("켜면 집중하는 동안 설정 앱과 앱 삭제 창도 막혀서, 권한을 끄거나 이 앱을 지우는 꼼수를 막아요. " +
                 "급할 때는 기다려서 풀기를 쓰면 돼요.", 13f)
             addView(Switch(context).apply {
-                text = "설정 앱도 잠그기"
+                text = "켜기"
                 textSize = 16f
                 isChecked = store.lockSettings
                 isEnabled = !locked
@@ -91,6 +92,10 @@ class SettingsActivity : Activity() {
             setText(store.syncServer)
             hint = "예: study-lock-sync.이름.workers.dev"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            // 긴 주소가 잘리지 않게 줄바꿈
+            isSingleLine = false
+            maxLines = 3
+            setHorizontallyScrolling(false)
             isEnabled = !locked && store.syncCode == null
         }
         addView(serverInput)
@@ -115,7 +120,8 @@ class SettingsActivity : Activity() {
             return
         }
         if (locked) return
-        val codeInput = EditText(context).apply { hint = "받은 연동 코드 (예: ABCD-EFGH-JKMN)" }
+        text("연동 코드", 15f, bold = true, topDp = 12)
+        val codeInput = EditText(context).apply { hint = "다른 기기에서 받은 코드 (예: ABCD-EFGH-JKMN)" }
         addView(codeInput)
         button("이 코드로 연결", topDp = 8) {
             val c = SyncApi.normalizeCode(codeInput.text.toString())
@@ -170,13 +176,18 @@ class SettingsActivity : Activity() {
             }
             return
         }
+        if (locked) {
+            text("키 없음", 15f)
+            return
+        }
         val input = EditText(context).apply {
             this.hint = hint
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            isEnabled = !locked
+            // 비밀번호 칸은 기본이 고정폭 글꼴이라 안내 글자가 띄엄띄엄 보였다
+            typeface = Typeface.DEFAULT
         }
         addView(input)
-        if (!locked) button("키 저장", topDp = 8) {
+        button("키 저장", topDp = 8) {
             val k = input.text.toString().trim()
             val problem = check(k)
             if (problem != null) {
