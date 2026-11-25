@@ -14,7 +14,7 @@ android {
         // GitHub Actions 실행 번호를 versionCode 로 쓴다: 빌드할 때마다 커져서 항상 '업데이트'로 설치된다
         val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
         versionCode = maxOf(3, run ?: 3)
-        versionName = "0.5.0" + (run?.let { " (빌드 $it)" } ?: "")
+        versionName = "0.6.0" + (run?.let { " (빌드 $it)" } ?: "")
     }
 
     compileOptions {
@@ -44,6 +44,8 @@ dependencies {
     implementation("com.anthropic:anthropic-java:3.13.0")
     // 카메라 앱에 사진 저장 위치를 넘겨주는 FileProvider
     implementation("androidx.core:core:1.13.1")
+    // 연동 서버 소켓(Anthropic SDK 가 이미 쓰는 것과 같은 버전)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     testImplementation("junit:junit:4.13.2")
     // 안드로이드 기본 org.json 은 단위 테스트에서 빈 껍데기라 진짜 구현을 넣는다

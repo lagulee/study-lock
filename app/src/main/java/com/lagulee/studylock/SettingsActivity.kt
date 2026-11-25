@@ -39,6 +39,9 @@ class SettingsActivity : Activity() {
             })
 
             divider()
+            syncSection(locked)
+
+            divider()
             text("AI 사진 판단 (선택)", 17f, bold = true, topDp = 16)
             text("AI 키를 넣으면 AI가 할 일과 인증 사진을 비교해서 실제로 했는지 판단해요. " +
                 "키는 이 기기 안에만 암호화해서 저장돼요. 키가 없으면 사진을 찍기만 하면 풀려요. " +
@@ -68,6 +71,93 @@ class SettingsActivity : Activity() {
             button("완료", topDp = 24) { finish() }
         }
     }
+
+    /** 다른 기기(폰·탭·컴퓨터)와 연동: 같은 연동 코드를 넣은 기기끼리 집중 시작·해제를 같이 한다. */
+    private fun LinearLayout.syncSection(locked: Boolean) {
+        text("다른 기기와 연동 (선택)", 17f, bold = true, topDp = 16)
+        text("폰·탭·컴퓨터에 같은 연동 코드를 넣으면, 한 곳에서 집중을 시작하거나 풀 때 다른 기기도 똑같이 따라가요. " +
+            "막는 앱은 기기마다 따로 골라요.", 13f)
+
+        text("이 기기 이름", 15f, bold = true, topDp = 12)
+        val nameInput = EditText(context).apply {
+            setText(store.deviceName)
+            hint = "예: 폰, 탭"
+            isEnabled = !locked
+        }
+        addView(nameInput)
+
+        text("연동 서버 주소", 15f, bold = true, topDp = 12)
+        val serverInput = EditText(context).apply {
+            setText(store.syncServer)
+            hint = "예: study-lock-sync.이름.workers.dev"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            isEnabled = !locked && store.syncCode == null
+        }
+        addView(serverInput)
+
+        val code = store.syncCode
+        if (code != null) {
+            text("연동 코드: ${SyncApi.prettyCode(code)}", 20f, bold = true, topDp = 12)
+            text("다른 기기 설정에서 이 코드를 넣으면 함께 잠겨요.", 13f)
+            text(if (store.syncConnected) "연결된 기기: ${store.syncDevices.joinToString(", ")}" else "연동 서버에 연결하는 중…", 14f)
+            if (!locked) {
+                button("이름 저장", topDp = 8) {
+                    store.deviceName = nameInput.text.toString()
+                    toast("저장했어요. 다시 연결할 때 새 이름으로 보여요.")
+                    restartService()
+                }
+                button("연동 끊기", topDp = 8) {
+                    store.syncCode = null
+                    restartService()
+                    render()
+                }
+            }
+            return
+        }
+        if (locked) return
+        val codeInput = EditText(context).apply { hint = "받은 연동 코드 (예: ABCD-EFGH-JKMN)" }
+        addView(codeInput)
+        button("이 코드로 연결", topDp = 8) {
+            val c = SyncApi.normalizeCode(codeInput.text.toString())
+            val server = SyncApi.normalizeServer(serverInput.text.toString())
+            when {
+                server.isBlank() -> toast("연동 서버 주소를 넣어 주세요.")
+                c == null -> toast("연동 코드는 12글자예요. 다시 확인해 주세요.")
+                else -> joinGroup(server, nameInput.text.toString()) { SyncApi.state(server, c); c }
+            }
+        }
+        button("새 연동 만들기 (첫 기기일 때)", topDp = 8) {
+            val server = SyncApi.normalizeServer(serverInput.text.toString())
+            if (server.isBlank()) toast("연동 서버 주소를 넣어 주세요.")
+            else joinGroup(server, nameInput.text.toString()) { SyncApi.createGroup(server) }
+        }
+    }
+
+    /** 서버와 확인한 뒤 연동 코드를 저장한다(네트워크는 다른 스레드에서). */
+    private fun joinGroup(server: String, name: String, get: () -> String) {
+        toast("연동 서버에 연결하는 중…")
+        Thread {
+            val result = try { Result.success(get()) } catch (e: Exception) { Result.failure(e) }
+            runOnUiThread {
+                result.onSuccess { c ->
+                    store.syncServer = server
+                    if (name.isNotBlank()) store.deviceName = name
+                    store.syncCode = c
+                    store.syncConnected = false
+                    WatchService.sync(this)
+                    toast("연동했어요!")
+                    render()
+                }.onFailure { e -> toast(e.message ?: "연결하지 못했어요.") }
+            }
+        }.start()
+    }
+
+    private fun restartService() {
+        stopService(android.content.Intent(this, WatchService::class.java))
+        WatchService.sync(this)
+    }
+
+    private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
 
     /** 키 하나의 저장·지우기 칸. check 가 글을 돌려주면 저장하지 않고 그 글을 보여 준다. */
     private fun LinearLayout.keySection(name: String, hint: String, locked: Boolean, check: (String) -> String?) {

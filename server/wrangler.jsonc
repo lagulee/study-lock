@@ -1,0 +1,12 @@
+{
+  // 공부 잠금 연동 서버: 같은 연동 코드를 넣은 기기(폰·탭·컴퓨터)끼리 집중 시작·해제를 주고받는다.
+  "name": "study-lock-sync",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-10-01",
+  // 연동 묶음 하나 = Durable Object 하나
+  "durable_objects": {
+    "bindings": [{ "name": "GROUP", "class_name": "Group" }]
+  },
+  // 무료 플랜 조건: SQLite 기반 Durable Object만 쓴다.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Group"] }]
+}

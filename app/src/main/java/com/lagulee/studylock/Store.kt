@@ -6,7 +6,8 @@ import org.json.JSONObject
 import java.io.File
 
 /**
- * 앱의 모든 설정과 집중 세션 상태를 이 기기 안에만 저장한다(다른 기기와 동기화하지 않음).
+ * 앱의 모든 설정과 집중 세션 상태를 이 기기 안에 저장한다.
+ * 연동 코드가 있으면 집중 시작·대기·해제를 보낼 동작(pendingOps)으로 쌓아 두고, WatchService 가 연동 서버로 보낸다.
  */
 class Store(context: Context) {
     private val app = context.applicationContext
@@ -64,11 +65,16 @@ class Store(context: Context) {
             .putBoolean("sessionLockSettings", lockSettings)
             .putLong("waitUntil", 0L)
             .remove("failAt")
+            .remove("sessionBy")
             .apply()
+        queueOp(JSONObject().put("type", "start").put("task", task.trim()).put("waitMinutes", waitMinutes))
     }
 
     fun startWait(now: Long = System.currentTimeMillis()) {
-        if (waitUntil == 0L) p.edit().putLong("waitUntil", now + sessionWaitMinutes * 60_000L).apply()
+        if (waitUntil == 0L) {
+            p.edit().putLong("waitUntil", now + sessionWaitMinutes * 60_000L).apply()
+            queueOp(JSONObject().put("type", "wait"))
+        }
     }
 
     /** 대기 시간이 다 지났으면 세션을 끝내고 true. */
@@ -94,6 +100,88 @@ class Store(context: Context) {
             .putLong("waitUntil", 0L)
             .remove("failAt")
             .apply()
+        queueOp(JSONObject().put("type", "end").put("method", method).put("note", note))
+    }
+
+    // ---- 다른 기기와 연동 ----
+    /** 연동 서버 주소(예: https://study-lock-sync.이름.workers.dev). */
+    var syncServer: String
+        get() = p.getString("syncServer", null) ?: SyncApi.DEFAULT_SERVER
+        set(v) = p.edit().putString("syncServer", v.trim()).apply()
+
+    /** 연동 코드(12자). 없으면 연동하지 않음. */
+    var syncCode: String?
+        get() = p.getString("syncCode", null)
+        set(v) = p.edit().putString("syncCode", v).remove("pendingOps").apply()
+
+    /** 다른 기기에 보일 이 기기 이름(예: 폰, 탭). */
+    var deviceName: String
+        get() = p.getString("deviceName", null)?.takeIf { it.isNotBlank() }
+            ?: if (app.resources.configuration.smallestScreenWidthDp >= 600) "탭" else "폰"
+        set(v) = p.edit().putString("deviceName", v.trim().take(20)).apply()
+
+    val syncEnabled: Boolean get() = syncCode != null && syncServer.isNotBlank()
+
+    /** 서비스가 기록해 두는 연결 상태(화면 표시용). */
+    var syncConnected: Boolean
+        get() = p.getBoolean("syncConnected", false)
+        set(v) = p.edit().putBoolean("syncConnected", v).apply()
+    var syncDevices: List<String>
+        get() = (p.getString("syncDevices", "") ?: "").split("\n").filter { it.isNotBlank() }
+        set(v) = p.edit().putString("syncDevices", v.joinToString("\n")).apply()
+    /** 지금 세션을 다른 기기에서 시작했으면 그 기기 이름. */
+    val sessionBy: String get() = p.getString("sessionBy", "") ?: ""
+
+    /** 아직 서버에 못 보낸 동작들(순서대로). */
+    fun pendingOps(): List<JSONObject> {
+        val arr = JSONArray(p.getString("pendingOps", "[]"))
+        return (0 until arr.length()).map { arr.getJSONObject(it) }
+    }
+
+    private fun queueOp(op: JSONObject) {
+        if (!syncEnabled) return
+        op.put("by", deviceName)
+        val arr = JSONArray(p.getString("pendingOps", "[]")).put(op)
+        p.edit().putString("pendingOps", arr.toString()).apply()
+    }
+
+    /** 맨 앞 동작을 서버가 받았으면 지운다. */
+    fun dropFirstOp() {
+        val arr = JSONArray(p.getString("pendingOps", "[]"))
+        if (arr.length() > 0) arr.remove(0)
+        p.edit().putString("pendingOps", arr.toString()).apply()
+    }
+
+    fun clearOps() = p.edit().remove("pendingOps").apply()
+
+    /**
+     * 서버 상태를 이 기기에 맞춘다(보낼 동작이 남아 있으면 부르지 않는다). 시각은 이 기기 시계로 바꾼 값.
+     * 다른 기기가 시작한 집중이면 이 기기에서 고른 앱으로 잠그고, 다른 기기에서 풀었으면 여기도 푼다.
+     */
+    fun applyRemote(r: SyncApi.Remote) {
+        if (r.active) {
+            val e = p.edit()
+            if (!active) {
+                e.putBoolean("active", true)
+                    .putBoolean("sessionLockSettings", lockSettings)
+                    .remove("failAt")
+            }
+            e.putString("sessionTask", r.task)
+                .putLong("startedAt", r.startedAt)
+                .putInt("sessionWaitMinutes", r.waitMinutes)
+                .putLong("waitUntil", r.waitUntil)
+                .putString("sessionBy", if (r.by == deviceName) "" else r.by)
+                .apply()
+        } else if (active) {
+            val where = if (r.endedBy.isNotBlank() && r.endedBy != deviceName) " (${r.endedBy})" else ""
+            addRecord(Record(sessionTask, startedAt, System.currentTimeMillis(), (r.endedMethod.ifBlank { "해제" }) + where, note = r.endedNote))
+            p.edit()
+                .putBoolean("active", false)
+                .putLong("waitUntil", 0L)
+                .remove("failAt")
+                .remove("sessionBy")
+                .apply()
+        }
     }
 
     /** 지금 막아야 하는 앱인지. */

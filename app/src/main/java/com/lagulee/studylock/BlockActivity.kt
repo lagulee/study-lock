@@ -40,10 +40,11 @@ class BlockActivity : Activity() {
 
     private val ticker = object : Runnable {
         override fun run() {
-            if (store.finishWaitIfDone()) {
-                finish()
+            if (!store.active || store.finishWaitIfDone()) {
+                finish() // 다른 기기에서 풀었거나 대기 시간이 끝남
                 return
             }
+            if (store.waitUntil != 0L && waitText == null) render() // 다른 기기에서 대기를 시작함
             if (store.waitUntil != 0L) waitText?.text = "⏳ 대기 해제까지 ${remainText(store.waitUntil - System.currentTimeMillis())}"
             tick.postDelayed(this, 1000)
         }
@@ -65,6 +66,7 @@ class BlockActivity : Activity() {
             if (store.waitUntil == 0L) {
                 button("⏳ ${store.sessionWaitMinutes}분 기다려서 풀기", topDp = 8) {
                     store.startWait()
+                    WatchService.sync(this@BlockActivity)
                     render()
                 }
             } else {

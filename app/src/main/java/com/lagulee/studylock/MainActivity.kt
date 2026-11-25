@@ -21,6 +21,9 @@ class MainActivity : Activity() {
     private lateinit var store: Store
     private val tick = Handler(Looper.getMainLooper())
     private var liveText: TextView? = null
+    private var syncText: TextView? = null
+    /** 화면을 그릴 때의 상태. 다른 기기 때문에 바뀌면 다시 그린다. */
+    private var drawn = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,7 +49,9 @@ class MainActivity : Activity() {
                 Toast.makeText(this@MainActivity, "기다린 시간이 끝나 잠금이 풀렸어요", Toast.LENGTH_LONG).show()
                 render()
             }
+            if (drawnKey() != drawn) render()
             liveText?.text = liveStatus()
+            syncText?.text = syncStatus()
             tick.postDelayed(this, 1000)
         }
     }
@@ -59,7 +64,16 @@ class MainActivity : Activity() {
         return sb.toString()
     }
 
+    private fun drawnKey() = "${store.active}|${store.waitUntil}|${store.sessionTask}"
+
+    private fun syncStatus(): String = when {
+        !store.syncEnabled -> ""
+        store.syncConnected -> "🔗 연동됨: ${store.syncDevices.joinToString(", ")}"
+        else -> "🔗 연동 서버에 연결하는 중…"
+    }
+
     private fun render() {
+        drawn = drawnKey()
         page {
             text("공부 잠금", 26f, bold = true, topDp = 0)
             text("할 일을 끝내고 사진으로 인증해야 고른 앱이 풀려요.", 14f)
@@ -88,6 +102,8 @@ class MainActivity : Activity() {
                 text("⚠️ 집중 중인데 권한이 꺼져 있어서 지금은 앱이 막히지 않아요.", 14f, bold = true)
             }
 
+            syncText = if (store.syncEnabled) text(syncStatus(), 14f) else null
+
             divider()
             if (store.active) activeSection() else setupSection(ready)
 
@@ -111,6 +127,7 @@ class MainActivity : Activity() {
     private fun LinearLayout.activeSection() {
         text("🔒 집중 중", 22f, bold = true)
         text("할 일: ${store.sessionTask}", 18f)
+        if (store.sessionBy.isNotBlank()) text("${store.sessionBy}에서 시작한 집중이에요.", 14f)
         liveText = text(liveStatus(), 14f)
         text("막힌 앱 ${store.blocked.size}개" + if (store.sessionLockSettings) " + 설정 앱" else "", 14f)
         button("📸 할 일 인증하고 풀기") { startActivity(Intent(this@MainActivity, VerifyActivity::class.java)) }
@@ -175,7 +192,7 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("기다려서 풀까요?")
             .setMessage("지금부터 ${store.sessionWaitMinutes}분이 지나면 잠금이 풀려요. 기록에는 '대기 해제'로 남아요. 기다리는 동안에도 사진 인증으로 바로 풀 수 있어요.")
-            .setPositiveButton("기다리기 시작") { _, _ -> store.startWait(); render() }
+            .setPositiveButton("기다리기 시작") { _, _ -> store.startWait(); WatchService.sync(this); render() }
             .setNegativeButton("취소", null)
             .show()
     }
