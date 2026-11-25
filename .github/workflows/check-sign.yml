@@ -1,0 +1,38 @@
+name: 서명 확인
+# 지금까지 만든 APK 들의 서명 키와 버전을 비교한다(업데이트 설치가 안 될 때 원인 찾기용).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/check-sign.yml']
+permissions:
+  actions: read
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: debug-keystore-v1
+      - name: 캐시에 있는 서명 키
+        run: keytool -list -v -keystore ~/.android/debug.keystore -storepass android | grep -E "SHA256|Owner|Valid" || echo "캐시 없음"
+      - name: 빌드별 APK 서명·버전
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "build-tools: $BT"
+          for id in $(gh run list -R "$GITHUB_REPOSITORY" -w android.yml -L 30 --json databaseId,conclusion -q '.[] | select(.conclusion=="success") | .databaseId'); do
+            num=$(gh run view "$id" -R "$GITHUB_REPOSITORY" --json number -q .number)
+            d="apk-$num"; mkdir -p "$d"
+            if gh run download "$id" -R "$GITHUB_REPOSITORY" -n study-lock-apk -D "$d" 2>/dev/null; then
+              f="$d/app-debug.apk"
+              cert=$("$BT/apksigner" verify --print-certs "$f" 2>&1 | grep -m1 "SHA-256" | awk '{print $NF}')
+              ver=$("$BT/aapt2" dump badging "$f" | head -1)
+              echo "빌드 $num | 서명 $cert | $ver | $(stat -c %s "$f") bytes"
+            else
+              echo "빌드 $num | 아티팩트 없음"
+            fi
+          done
